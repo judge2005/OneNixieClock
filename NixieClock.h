@@ -33,33 +33,47 @@ public:
 	void set12hour(bool twelveHour) {
 		if (this->twelveHour != twelveHour) {
 			this->twelveHour = twelveHour;
-			nextNixieDisplay = 0;
+			displayTimer.setDuration(0);
+		}
+	}
+
+	void setLeadingZero(bool leadingZero) {
+		if (this->leadingZero != leadingZero) {
+			this->leadingZero = leadingZero;
+			displayTimer.setDuration(0);
+		}
+	}
+
+	void setShowDate(bool showDate) {
+		if (this->showDate != showDate) {
+			this->showDate = showDate;
+			showDate = 0;
 		}
 	}
 
 	void setTimeMode(bool timeMode) {
 		if (this->timeMode != timeMode) {
 			this->timeMode = timeMode;
-			nextNixieDisplay = 0;
+			displayTimer.setDuration(0);
 		}
 	}
 
 	void setAlternateTime(bool alternateTime) {
 		if (this->alternateTime != alternateTime) {
 			this->alternateTime = alternateTime;
-			nextNixieDisplay = 0;
+			displayTimer.setDuration(0);
 		}
 	}
 
 	void toggleAlternateTime() {
 		alternateTime = !alternateTime;
-		nextNixieDisplay = 0;
+		displayTimer.setDuration(0);
 	}
 
 	void setDateFormat(byte dateFormat) {
 		if (this->dateFormat != dateFormat) {
 			this->dateFormat = dateFormat;
-			nextNixieDisplay = 0;
+			displayTimer.setDuration(0);
 		}
 	}
 
@@ -79,7 +93,7 @@ public:
 		this->numDigits = numDigits;
 	}
 
-	void setDigit(uint16_t digit);
+	void setDigit(uint32_t digit);
 
 	void setCountSpeed(byte countSpeed);
 
@@ -89,7 +103,7 @@ public:
 
 	bool isOn();
 
-	uint16_t getNixieDigit() {
+	uint32_t getNixieDigit() {
 		return nixieDigit;
 	}
 
@@ -100,16 +114,41 @@ public:
 	byte getACPCount() {
 		return acpCount;
 	}
+
+	/*
+	 * Overflow-safe timer
+	 */
+	class Timer {
+	public:
+		Timer(unsigned int duration) : lastTick(0), duration(duration) {}
+		Timer() : lastTick(0), duration(0) {}
+
+		bool expired(uint32_t now) {
+			return now - lastTick >= duration;
+		}
+		void setDuration(unsigned int duration) {
+			this->duration = duration;
+		}
+		void init(uint32_t now, unsigned int duration) {
+			lastTick = now;
+			this->duration = duration;
+		}
+	private:
+		uint32_t lastTick;
+		unsigned int duration;
+	};
+
 protected:
 	NixieDriver* pNixieDriver;
 
-	unsigned long nextNixieDisplay = 0;
+	Timer displayTimer;
 	unsigned long nextACP = 0;
 	byte timePart = 0;
 	int digitsOn = 1500;
 	bool scrollback = true;
 
 	#define DIGIT_LINGER 1000
+	int yearSnap = 0;
 	int monthSnap = 0;
 	int daySnap = 0;
 	int hourSnap = 0;
@@ -121,13 +160,15 @@ protected:
 	bool twelveHour = false;
 	bool timeMode = true;
 	bool alternateTime = false;
+	bool showDate = true;
+	bool leadingZero = true;
 	byte dateFormat = 1;
 	NixieDriver::DisplayMode fadeMode = NixieDriver::FADE_OUT;
 
 	bool clockMode = true;
 	byte countSpeed = 60;
 	byte numDigits = 12;
-	uint16_t nixieDigit = 0;
+	uint32_t nixieDigit = 0;
 	byte on = 0;
 	byte off = 24;
 };

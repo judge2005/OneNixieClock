@@ -23,8 +23,8 @@ void TwoNixieClock::doCount(unsigned long nowMs) {
 		return;
 	}
 
-	if (nowMs >= nextNixieDisplay) {
-		nextNixieDisplay = nowMs + 60000 / countSpeed;
+	if (displayTimer.expired(nowMs)) {
+		displayTimer.init(nowMs, 60000 / countSpeed);
 		nixieDigit = (nixieDigit + 1) % 10;
 		pNixieDriver->setMode(fadeMode);
 		pNixieDriver->setNewNixieDigit(nixieDigit + nixieDigit * 16);
@@ -33,10 +33,10 @@ void TwoNixieClock::doCount(unsigned long nowMs) {
 
 void TwoNixieClock::doClock(unsigned long nowMs) {
 	if (timePart == 6) {
-		if (nowMs >= nextACP) {
+		if (displayTimer.expired(nowMs)) {
+			displayTimer.init(nowMs, 50);
 			pNixieDriver->setColons(0);
 			pNixieDriver->setMode(NixieDriver::NO_FADE);
-			nextACP = nowMs + 50 - (nowMs - nextACP);
 			if (scrollback) {
 				nixieDigit = (nixieDigit + 1) % 10;
 			} else {
@@ -51,19 +51,17 @@ void TwoNixieClock::doClock(unsigned long nowMs) {
 				hourSnap = hour(_now);
 				minSnap = minute(_now);
 				secSnap = second(_now);
-				nextNixieDisplay = nextACP;
+				displayTimer.init(nowMs, 0);
 			}
 		}
 	} else {
-		if (nowMs >= nextNixieDisplay) {
+		if (displayTimer.expired(nowMs)) {
 			acpCount = 0;
-			if (nextNixieDisplay + digitsOn < nowMs) {
-				nextNixieDisplay = nowMs;
-			}
 
 			byte colonMask = 0;
 			pNixieDriver->setMode(fadeMode);
-			nextNixieDisplay = nowMs + digitsOn - (nowMs - nextNixieDisplay);
+			displayTimer.init(nowMs, digitsOn);
+
 			switch (timePart) {
 			case 0:
 				colonMask = 1;
@@ -116,7 +114,6 @@ void TwoNixieClock::doClock(unsigned long nowMs) {
 			pNixieDriver->setColons(colonMask);
 			if (timePart == 4) {
 				nixieDigit = 0;
-				nextACP = nextNixieDisplay;
 			}
 			timePart = (timePart + 2) % 7;
 		}

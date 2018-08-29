@@ -18,12 +18,19 @@ public:
 	{
 	}
 
+	OneNixieClock(NixieDriver* pNixieDriver, byte scrollBackDelay) :
+		NixieClock(pNixieDriver), scrollBackDelay(scrollBackDelay)
+	{
+	}
+
 	virtual void loop(unsigned long nowMs);
 
 private:
-	uint16_t getDigit();
+	uint32_t getDigit();
 	void doClock(unsigned long nowMs);
 	void doCount(unsigned long nowMs);
+
+	byte scrollBackDelay = 50;
 };
 
 

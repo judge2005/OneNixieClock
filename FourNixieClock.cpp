@@ -23,8 +23,8 @@ void FourNixieClock::doCount(unsigned long nowMs) {
 		return;
 	}
 
-	if (nowMs >= nextNixieDisplay) {
-		nextNixieDisplay = nowMs + 60000 / countSpeed;
+	if (displayTimer.expired(nowMs)) {
+		displayTimer.init(nowMs, 60000 / countSpeed);
 		nixieDigit = (nixieDigit + 1) % 10;
 		pNixieDriver->setMode(fadeMode == NixieDriver::NO_FADE_DELAY ? NixieDriver::NO_FADE : fadeMode);
 		pNixieDriver->setNewNixieDigit(nixieDigit + nixieDigit * 16 + nixieDigit * 256 + nixieDigit * 4096);
@@ -32,8 +32,8 @@ void FourNixieClock::doCount(unsigned long nowMs) {
 }
 
 void FourNixieClock::doClock(unsigned long nowMs) {
-	if (nowMs >= nextNixieDisplay) {
-		nextNixieDisplay = nowMs + 1000;
+	if (displayTimer.expired(nowMs)) {
+		displayTimer.init(nowMs, 1000);
 
 		pNixieDriver->setMode(fadeMode == NixieDriver::NO_FADE_DELAY ? NixieDriver::NO_FADE : fadeMode);
 		time_t _now = now();
@@ -43,7 +43,7 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 		minSnap = minute(_now);
 		secSnap = second(_now);
 
-		uint16_t oldNixieDigit = nixieDigit;
+		uint32_t oldNixieDigit = nixieDigit;
 
 		if (timeMode != alternateTime) {
 			if (twelveHour) {

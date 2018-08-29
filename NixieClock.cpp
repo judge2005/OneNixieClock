@@ -10,7 +10,7 @@
 
 void NixieClock::init() {
 	timePart = 0;
-	nextNixieDisplay = 0;
+	displayTimer.init(0, 0);
 	nixieDigit = 0;
 }
 
@@ -25,7 +25,7 @@ void NixieClock::setClockMode(bool clockMode) {
 		hourSnap = hour(_now);
 		minSnap = minute(_now);
 		secSnap = second(_now);
-		nextNixieDisplay = millis();
+		displayTimer.init(millis(), 0);
 	}
 }
 
@@ -52,10 +52,10 @@ bool NixieClock::isOn() {
 	}
 }
 
-void NixieClock::setDigit(const uint16_t digit) {
+void NixieClock::setDigit(const uint32_t digit) {
 	if (!clockMode && this->nixieDigit != digit) {
 		if (countSpeed != 0) {
-			nextNixieDisplay = millis() + 60000 / countSpeed;
+			displayTimer.init(millis(), 60000 / countSpeed);
 		}
 		nixieDigit = digit;
 		pNixieDriver->setNewNixieDigit(nixieDigit);
@@ -68,9 +68,9 @@ void NixieClock::setCountSpeed(byte countSpeed) {
 			if (this->countSpeed != 0) {
 				int adj = 60000/countSpeed - 60000/this->countSpeed;
 
-				nextNixieDisplay += adj;
+				displayTimer.init(millis(), adj > 0 ? adj : 0);
 			} else {
-				nextNixieDisplay = millis() + 60000 / countSpeed;
+				displayTimer.init(millis(), 60000 / countSpeed);
 			}
 		}
 	}

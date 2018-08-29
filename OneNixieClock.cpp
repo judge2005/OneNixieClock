@@ -23,16 +23,17 @@ void OneNixieClock::doCount(unsigned long nowMs) {
 		return;
 	}
 
-	if (nowMs >= nextNixieDisplay) {
-		nextNixieDisplay = nowMs + 60000 / countSpeed;
+	if (displayTimer.expired(nowMs)) {
+		displayTimer.init(nowMs, 60000 / countSpeed);
+
 		nixieDigit = (nixieDigit + 1) % numDigits;
 		pNixieDriver->setMode(fadeMode);
 		pNixieDriver->setNewNixieDigit(nixieDigit);
 	}
 }
 
-uint16_t OneNixieClock::getDigit() {
-	uint16_t digit = 0;
+uint32_t OneNixieClock::getDigit() {
+	uint32_t digit = 0;
 
 	switch (timePart) {
 	case 0:
@@ -114,7 +115,7 @@ uint16_t OneNixieClock::getDigit() {
 
 void OneNixieClock::doClock(unsigned long nowMs) {
 	if (timePart == 6) {
-		if (nowMs >= nextACP) {
+		if (displayTimer.expired(nowMs)) {
 			pNixieDriver->setColons(0);
 			time_t _now = now();
 			monthSnap = month(_now);
@@ -122,20 +123,20 @@ void OneNixieClock::doClock(unsigned long nowMs) {
 			hourSnap = hour(_now);
 			minSnap = minute(_now);
 			secSnap = second(_now);
-			uint16_t nextClockDigit = getDigit();
+			uint32_t nextClockDigit = getDigit();
 			if (pNixieDriver->setTransition(scrollback ? 2 : 1, nextClockDigit)) {
 				pNixieDriver->setMode(NixieDriver::NO_FADE);
-				nextACP = nowMs + 50 - (nowMs - nextACP);
+				displayTimer.init(nowMs, scrollBackDelay);
 			} else {
 				pNixieDriver->setTransition(0, nextClockDigit);
 				timePart = 0;
-				nextNixieDisplay = nextACP;
+				displayTimer.init(nowMs, 0);
 			}
 		}
 	}
 
 	if (timePart != 6) {
-		if (nowMs >= nextNixieDisplay) {
+		if (displayTimer.expired(nowMs)) {
 			byte colonMask = 0;
 			switch (timePart) {
 			case 0:
@@ -161,15 +162,9 @@ void OneNixieClock::doClock(unsigned long nowMs) {
 			pNixieDriver->setTransition(0, nixieDigit);
 			pNixieDriver->setNewNixieDigit(nixieDigit);
 			acpCount = 0;
-			if (nextNixieDisplay + digitsOn < nowMs) {
-				nextNixieDisplay = nowMs;
-			}
 
-			nextNixieDisplay = nowMs + digitsOn - (nowMs - nextNixieDisplay);
+			displayTimer.init(nowMs, digitsOn);
 			pNixieDriver->setColons(colonMask);
-			if (timePart == 5) {
-				nextACP = nextNixieDisplay;
-			}
 			timePart = (timePart + 1) % 7;
 		}
 	}
