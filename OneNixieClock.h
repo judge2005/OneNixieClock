@@ -24,13 +24,14 @@ public:
 	}
 
 	virtual void loop(unsigned long nowMs);
+	void setScrollBackDelay(byte delay);
 
 private:
 	uint32_t getDigit();
 	void doClock(unsigned long nowMs);
 	void doCount(unsigned long nowMs);
 
-	byte scrollBackDelay = 50;
+	byte scrollBackDelay = 80;
 };
 
 

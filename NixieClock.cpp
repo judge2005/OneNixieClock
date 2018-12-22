@@ -14,6 +14,10 @@ void NixieClock::init() {
 	nixieDigit = 0;
 }
 
+void NixieClock::syncDisplay() {
+	init();
+}
+
 void NixieClock::setClockMode(bool clockMode) {
 	if (clockMode != this->clockMode) {
 		this->clockMode = clockMode;

@@ -16,6 +16,10 @@ void OneNixieClock::loop(unsigned long nowMs) {
 	}
 }
 
+void OneNixieClock::setScrollBackDelay(byte delay) {
+	scrollBackDelay = delay;
+}
+
 void OneNixieClock::doCount(unsigned long nowMs) {
 	pNixieDriver->setColons(0);
 

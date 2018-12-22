@@ -21,10 +21,52 @@ public:
 
 	virtual void loop(unsigned long nowMs);
 
+	virtual void setTimeMode(bool timeMode) {
+		if (this->timeMode != timeMode) {
+			this->timeMode = timeMode;
+			initAlternateTime();
+			displayTimer.setDuration(0);
+		}
+	}
+
+	virtual void setAlternateTime(bool alternateTime) {
+		if (!alternateTime) {	// Set display to default
+			if (initAlternateTime()) {
+				displayTimer.setDuration(0);
+			}
+		} else {
+			toggleAlternateTime();
+		}
+	}
+
+	virtual void toggleAlternateTime() {
+		alternateTime = (alternateTime + 1) % 3;
+		displayTimer.setDuration(0);
+	}
+
+
 private:
+	bool initAlternateTime() {
+		bool ret = false;
+		if (timeMode) {	// default display is time
+			if (alternateTime != 0) {
+				alternateTime = 0;	// Display time
+				ret = true;
+			}
+		} else {		// default display is month and day
+			if (alternateTime != 1) {
+				alternateTime = 1;	// Display month and day
+				ret = true;
+			}
+		}
+
+		return ret;
+	}
+
 	void doClock(unsigned long nowMs);
 	void doCount(unsigned long nowMs);
 
+	byte alternateTime = 0;
 	byte colonMask = 0;
 };
 

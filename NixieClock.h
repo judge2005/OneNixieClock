@@ -21,6 +21,7 @@ public:
 
 	virtual void loop(unsigned long nowMs) = 0;
 	virtual void init();
+	virtual void syncDisplay();
 
 	void setNixieDriver(NixieDriver* pNixieDriver) {
 		this->pNixieDriver = pNixieDriver;
@@ -51,21 +52,21 @@ public:
 		}
 	}
 
-	void setTimeMode(bool timeMode) {
+	virtual void setTimeMode(bool timeMode) {
 		if (this->timeMode != timeMode) {
 			this->timeMode = timeMode;
 			displayTimer.setDuration(0);
 		}
 	}
 
-	void setAlternateTime(bool alternateTime) {
+	virtual void setAlternateTime(bool alternateTime) {
 		if (this->alternateTime != alternateTime) {
 			this->alternateTime = alternateTime;
 			displayTimer.setDuration(0);
 		}
 	}
 
-	void toggleAlternateTime() {
+	virtual void toggleAlternateTime() {
 		alternateTime = !alternateTime;
 		displayTimer.setDuration(0);
 	}

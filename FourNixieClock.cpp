@@ -37,6 +37,7 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 
 		pNixieDriver->setMode(fadeMode == NixieDriver::NO_FADE_DELAY ? NixieDriver::NO_FADE : fadeMode);
 		time_t _now = now();
+		yearSnap = year(_now);
 		monthSnap = month(_now);
 		daySnap = day(_now);
 		hourSnap = hour(_now);
@@ -45,45 +46,57 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 
 		uint32_t oldNixieDigit = nixieDigit;
 
-		if (timeMode != alternateTime) {
-			if (twelveHour) {
-				if (hourSnap > 12) {
-					nixieDigit = (hourSnap - 12) * 100;
+		switch (alternateTime) {
+			case 0:
+			{
+				if (twelveHour) {
+					if (hourSnap > 12) {
+						nixieDigit = (hourSnap - 12) * 100;
+					} else {
+						nixieDigit = hourSnap * 100;
+					}
+
+					if (hourSnap == 0) {
+						nixieDigit = 1200;
+					}
 				} else {
 					nixieDigit = hourSnap * 100;
 				}
+				nixieDigit += minSnap;
 
-				if (hourSnap == 0) {
-					nixieDigit = 1200;
+				byte evenSec = secSnap & 1;
+				if (secSnap < 15) {
+					colonMask = 1;
+					colonMask ^= evenSec;
+				} else if (secSnap < 30) {
+					colonMask = 3;
+					colonMask ^= evenSec << 1;
+				} else if (secSnap < 45) {
+					colonMask = 7;
+					colonMask ^= evenSec << 2;
+				} else if (secSnap < 60) {
+					colonMask = 15;
+					colonMask ^= evenSec << 3;
 				}
-			} else {
-				nixieDigit = hourSnap * 100;
 			}
-			nixieDigit += minSnap;
+			break;
+			case 1: {
+				if (dateFormat == 0) {
+					nixieDigit = daySnap * 100 + monthSnap;
+				} else {
+					nixieDigit = monthSnap * 100 + daySnap;
+				}
 
-			byte evenSec = secSnap & 1;
-			if (secSnap < 15) {
-				colonMask = 1;
-				colonMask ^= evenSec;
-			} else if (secSnap < 30) {
-				colonMask = 3;
-				colonMask ^= evenSec << 1;
-			} else if (secSnap < 45) {
-				colonMask = 7;
-				colonMask ^= evenSec << 2;
-			} else if (secSnap < 60) {
-				colonMask = 15;
-				colonMask ^= evenSec << 3;
+				colonMask = 6;
 			}
-		} else {
-			if (dateFormat == 0) {
-				nixieDigit = daySnap * 100 + monthSnap;
-			} else {
-				nixieDigit = monthSnap * 100 + daySnap;
+			break;
+			case 2: {
+				nixieDigit = yearSnap;
+				colonMask = 9;
 			}
-
-			colonMask = 0;
+			break;
 		}
+
 		// Convert to BCD
 		nixieDigit = (nixieDigit % 10) * 4096
 				+ ((nixieDigit / 10) % 10) * 256
