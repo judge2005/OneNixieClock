@@ -100,6 +100,7 @@ public:
 
 	virtual void loop(unsigned long nowMs);
 	virtual void setHV(bool hv);
+	virtual void setMov(bool mov);
 	virtual void setAlternateInterval(byte alternateInterval);
 	virtual void setOutEffect(byte effect);
 	virtual void setInEffect(byte effect);
@@ -111,6 +112,7 @@ private:
 	void setCurrentEffect(byte effect);
 
 	bool hvOn = true;
+	bool mov = true;
 
 	byte colonMask = 0;
 	byte alternateInterval = 0;	// In mins. 0 = never

@@ -9,7 +9,7 @@
 #include <TimeLib.h>
 
 void SixNixieClock::loop(unsigned long nowMs) {
-	pNixieDriver->setDisplayOn(isOn() && hvOn);
+	pNixieDriver->setDisplayOn(isOn() && hvOn && mov);
 
 	if (clockMode) {
 		doClock(nowMs);
@@ -20,6 +20,10 @@ void SixNixieClock::loop(unsigned long nowMs) {
 
 void SixNixieClock::setHV(bool hv) {
 	this->hvOn = hv;
+}
+
+void SixNixieClock::setMov(bool mov) {
+	this->mov = mov;
 }
 
 void SixNixieClock::setAlternateInterval(byte alternateInterval)
