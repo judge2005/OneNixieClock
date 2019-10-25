@@ -32,6 +32,24 @@ class SixNixieClock : public NixieClock {
 		SixNixieClock &clock;
 	};
 
+	class Divergence : public Effect {
+	public:
+		Divergence(SixNixieClock &clock) : clock(clock) {}
+		virtual void init();
+		virtual bool in(uint32_t digits);
+		virtual bool out(uint32_t digits);
+		virtual byte getDelay();
+
+	private:
+		static const byte RUN_LENGTH[];
+		static byte runLengths[];
+		bool adjustRL = false;
+		byte pulse = 0;
+		byte savedBrightness;
+
+		SixNixieClock &clock;
+	};
+
 	class ScrollLeft : public Effect {
 	public:
 		ScrollLeft(SixNixieClock &clock) : clock(clock) {}
@@ -91,6 +109,7 @@ public:
 		NixieClock(pNixieDriver)
 	{
 		setNumDigits(6);
+		pDivergence = new Divergence(*this);
 		pBubble = new Bubble(*this);
 		pSlideLeft = new SlideLeft(*this);
 		pScrollLeft = new ScrollLeft(*this);
@@ -104,6 +123,24 @@ public:
 	virtual void setAlternateInterval(byte alternateInterval);
 	virtual void setOutEffect(byte effect);
 	virtual void setInEffect(byte effect);
+	virtual void setBrightness(const byte b) {
+		if (!lockedBrightness) {
+			brightness = b;
+			pNixieDriver->setBrightness(brightness);
+		}
+	}
+
+protected:
+	void lockBrightness(const byte b) {
+		lockedBrightness = true;
+		brightness = b;
+		pNixieDriver->setBrightness(brightness);
+	}
+
+	void unlockBrightness(const byte b) {
+		lockedBrightness = false;
+		setBrightness(b);
+	}
 
 private:
 	uint32_t bcdEncode(uint32_t digits, bool isDate);
@@ -113,12 +150,14 @@ private:
 
 	bool hvOn = true;
 	bool mov = true;
+	bool lockedBrightness = false;
 
 	byte colonMask = 0;
 	byte alternateInterval = 0;	// In mins. 0 = never
 	byte out_effect = 0;	// bubble
 	byte in_effect = 0;	// bubble
 
+	Divergence *pDivergence = 0;
 	Bubble *pBubble = 0;
 	SlideLeft *pSlideLeft = 0;
 	ScrollLeft *pScrollLeft = 0;

@@ -54,6 +54,8 @@ bool NixieClock::isOn() {
 	if (on > off) {
 		return !(hourSnap >= off && hourSnap < on);
 	}
+
+	return false;
 }
 
 void NixieClock::setDigit(const uint32_t digit) {

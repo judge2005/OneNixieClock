@@ -43,7 +43,7 @@ void SixNixieClock::setOutEffect(byte effect)
 
 void SixNixieClock::setCurrentEffect(byte effect)
 {
-	byte mode = random(0, 6);	// Return 0 through 5
+	byte mode = random(0, 7);	// Return 0 through 6
 	if (effect != 5) {
 		mode = effect;	// Not random after all
 	}
@@ -61,8 +61,11 @@ void SixNixieClock::setCurrentEffect(byte effect)
 	case 4:
 		pCurrentEffect = pScrollRight;
 		break;
-	default:
+	case 0:
 		pCurrentEffect = pBubble;
+		break;
+	default:
+		pCurrentEffect = pDivergence;
 		break;
 	}
 }
@@ -148,6 +151,176 @@ bool SixNixieClock::Bubble::in(uint32_t target) {
 					 ;
 
 	return clock.nixieDigit == target;
+}
+
+const byte SixNixieClock::Divergence::RUN_LENGTH[] = {
+// Lookup Table for run lengths (appropriate random number in W... 0-7, 0-15, 0-63)
+// The first 8 are multiples of 10, for use when tube 7 returns to starting digit.
+// The first 16 are multiples of 5, for use when two cycles return digits to same.
+// The rest of the 64 are spaced to give good stopping distribution.
+		20,
+		30,
+		40,
+		50,
+		50,
+		60,
+		60,
+		70,
+
+		15,
+		25,
+		35,
+		45,
+		55,
+		55,
+		55,
+		65,
+
+		18,
+		19,
+		22,
+		23,
+		24,
+		26,
+		27,
+		28,
+
+		29,
+		31,
+		32,
+		33,
+		34,
+		36,
+		37,
+		38,
+
+		39,
+		41,
+		42,
+		43,
+		44,
+		46,
+		47,
+		48,
+
+		49,
+		16,
+		51,
+		17,
+		52,
+		68,
+		53,
+		67,
+
+		21,
+		69,
+		54,
+		56,
+		56,
+		64,
+		57,
+		57,
+
+		66,
+		58,
+		58,
+		63,
+		59,
+		59,
+		61,
+		62
+};
+
+byte SixNixieClock::Divergence::runLengths[6];
+
+void SixNixieClock::Divergence::init() {
+	for (int i=0; i<6; i++) {
+		runLengths[i] = RUN_LENGTH[random(64)];
+	}
+
+	adjustRL = true;
+	pulse = 25;
+	savedBrightness = clock.brightness;
+}
+
+byte SixNixieClock::Divergence::getDelay() {
+	return 25;
+}
+
+bool SixNixieClock::Divergence::out(uint32_t target) {
+#ifdef notdef
+	if (adjustRL) {
+		adjustRL = false;
+
+		// Adjust run lengths by difference between current and target
+		for (int i=0; i<6; i++) {
+			// nixieDigit is BCD encoded. nextNixieDigit isn't.
+			byte cd = clock.nixieDigit >> (i*4) & 0xf;	// current digit
+			byte nd = target >> (i*4) & 0xf;	// next digit
+
+			// cd is 12 for a blank. Leave this as is.
+			if (cd != 12 && nd != 12) {
+				if (nd > cd) {
+					runLengths[i] += nd - cd;
+				} else {
+					runLengths[i] += nd + 10 - cd;
+				}
+			}
+		}
+
+	}
+#endif
+
+	// Rotate current digits to nextNixieDigit
+	byte digits[6];
+	bool allEqual = true;
+	for (int i=0; i<6; i++) {
+		byte cd = clock.nixieDigit >> (i*4) & 0xf;	// current digit
+		byte nd = target >> (i*4) & 0xf;	// next digit
+		digits[i] = cd;
+
+		if (runLengths[i] - 1 != 0) {
+			runLengths[i] -= 1;
+			allEqual = false;
+
+			if (cd == 12) {
+				digits[i] = 0;	// If the current digit is a space, seed it with a number
+			} else {
+				digits[i] = (cd + 1) % 10;
+			}
+		} else  {
+			// To be sure as this could be a space
+			digits[i] = nd;
+		}
+	}
+
+	clock.nixieDigit =
+			  digits[0]
+			+ digits[1] * 0x10
+			+ digits[2] * 0x100
+			+ digits[3] * 0x1000
+			+ digits[4] * 0x10000
+			+ digits[5] * 0x100000
+					 ;
+
+	if (allEqual && pulse != 0) {
+		pulse -= 1;
+		if (pulse == 0) {
+			clock.unlockBrightness(savedBrightness);
+		} else if (pulse < 20){
+			byte pulseBrightness = savedBrightness * 2.5;
+			if (pulseBrightness > 100) {
+				pulseBrightness = 100;
+			}
+			clock.lockBrightness(pulseBrightness);
+		}
+	}
+
+	return allEqual && (pulse == 0);
+}
+
+bool SixNixieClock::Divergence::in(uint32_t target) {
+	return out(target);
 }
 
 void SixNixieClock::ScrollLeft::init() {
@@ -379,6 +552,15 @@ void SixNixieClock::doCount(unsigned long nowMs) {
 		pNixieDriver->setColons(nixieDigit % 2);
 		nixieDigit = (nixieDigit + 1) % 10;
 		pNixieDriver->setMode(fadeMode);
+#ifdef ESP32
+		pNixieDriver->setNewNixieDigit(
+				nixieDigit +
+				nixieDigit * 0x10 +
+				nixieDigit * 0x100 +
+				nixieDigit * 0x1000 +
+				nixieDigit * 0x10000 +
+				nixieDigit * 0x100000);
+#else
 		pNixieDriver->setNewNixieDigit(
 				nixieDigit +
 				((nixieDigit + 1) % 10) * 0x10 +
@@ -386,6 +568,7 @@ void SixNixieClock::doCount(unsigned long nowMs) {
 				((nixieDigit + 3) % 10) * 0x1000 +
 				((nixieDigit + 4) % 10) * 0x10000 +
 				((nixieDigit + 5) % 10) * 0x100000);
+#endif
 	}
 }
 
@@ -406,6 +589,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		monthSnap = month(_now);
 		daySnap = day(_now);
 		bool showDate = (alternateInterval != 0) && ((minSnap % alternateInterval) == 0) && (secSnap >= 45) && (secSnap <= 52);
+		bool tick = false;
 
 		if ((timeMode != alternateTime) && !showDate) {
 			uint32_t nextNixieDigit = stashedTime;
@@ -433,6 +617,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 
 				// Get BCD representation of the time
 				nextNixieDigit = bcdEncode(nextNixieDigit, false);
+				tick = true;
 			}
 
 			byte evenSec = secSnap & 1;
@@ -445,6 +630,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 
 			if (wasDate) {
 				colonMask = 0;
+				tick = false;
 
 				if (switchedBack) {
 					switchedBack = false;
@@ -498,5 +684,8 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		}
 
 		pNixieDriver->setColons(colonMask);
+		if (tick && callback != 0) {
+			callback(hourSnap * 3600 + minSnap * 60 + secSnap);
+		}
 	}
 }

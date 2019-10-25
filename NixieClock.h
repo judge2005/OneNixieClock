@@ -15,7 +15,10 @@ public:
 	NixieClock(NixieDriver* pNixieDriver) :
 		pNixieDriver(pNixieDriver)
 	{
+		pNixieDriver->setBrightness(brightness);
 	}
+
+	typedef void (*pTickFn)(uint32_t);
 
 	virtual ~NixieClock() {}
 
@@ -23,8 +26,13 @@ public:
 	virtual void init();
 	virtual void syncDisplay();
 
+	void onTick(pTickFn callback) {
+		this->callback = callback;
+	}
+
 	void setNixieDriver(NixieDriver* pNixieDriver) {
 		this->pNixieDriver = pNixieDriver;
+		pNixieDriver->setBrightness(brightness);
 	}
 
 	void setShowSeconds(bool showSeconds) {
@@ -50,6 +58,11 @@ public:
 			this->showDate = showDate;
 			showDate = 0;
 		}
+	}
+
+	virtual void setBrightness(const byte b) {
+		brightness = b;
+		pNixieDriver->setBrightness(brightness);
 	}
 
 	virtual void setTimeMode(bool timeMode) {
@@ -121,26 +134,30 @@ public:
 	 */
 	class Timer {
 	public:
-		Timer(unsigned int duration) : lastTick(0), duration(duration) {}
+		Timer(unsigned long duration) : lastTick(0), duration(duration) {}
 		Timer() : lastTick(0), duration(0) {}
 
-		bool expired(uint32_t now) {
+		bool expired(unsigned long now) {
 			return now - lastTick >= duration;
 		}
-		void setDuration(unsigned int duration) {
+		void setDuration(unsigned long duration) {
 			this->duration = duration;
 		}
-		void init(uint32_t now, unsigned int duration) {
+		void init(unsigned long now, unsigned long duration) {
 			lastTick = now;
 			this->duration = duration;
 		}
+		unsigned long getLastTick() {
+			return lastTick;
+		}
 	private:
-		uint32_t lastTick;
-		unsigned int duration;
+		unsigned long lastTick;
+		unsigned long duration;
 	};
 
 protected:
 	NixieDriver* pNixieDriver;
+	pTickFn callback = 0;
 
 	Timer displayTimer;
 	unsigned long nextACP = 0;
@@ -164,6 +181,7 @@ protected:
 	bool showDate = true;
 	bool leadingZero = true;
 	byte dateFormat = 1;
+	byte brightness = 100;
 	NixieDriver::DisplayMode fadeMode = NixieDriver::FADE_OUT;
 
 	bool clockMode = true;
