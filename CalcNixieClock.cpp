@@ -1,14 +1,15 @@
 /*
- * SixNixieClock.cpp
+ * CalcNixieClock.cpp
  *
  *  Created on: Dec 3, 2017
  *      Author: Paul Andrews
  */
 
-#include <SixNixieClock.h>
+#include <CalcNixieClock.h>
 #include <TimeLib.h>
+#include <HV9808ESP32NixieDriverMultiplex.h>
 
-void SixNixieClock::loop(unsigned long nowMs) {
+void CalcNixieClock::loop(unsigned long nowMs) {
 	pNixieDriver->setDisplayOn(isOn() && hvOn && mov);
 
 	if (clockMode) {
@@ -18,30 +19,30 @@ void SixNixieClock::loop(unsigned long nowMs) {
 	}
 }
 
-void SixNixieClock::setHV(bool hv) {
+void CalcNixieClock::setHV(bool hv) {
 	this->hvOn = hv;
 }
 
-void SixNixieClock::setMov(bool mov) {
+void CalcNixieClock::setMov(bool mov) {
 	this->mov = mov;
 }
 
-void SixNixieClock::setAlternateInterval(byte alternateInterval)
+void CalcNixieClock::setAlternateInterval(byte alternateInterval)
 {
 	this->alternateInterval = alternateInterval;
 }
 
-void SixNixieClock::setInEffect(byte effect)
+void CalcNixieClock::setInEffect(byte effect)
 {
 	this->in_effect = effect;
 }
 
-void SixNixieClock::setOutEffect(byte effect)
+void CalcNixieClock::setOutEffect(byte effect)
 {
 	this->out_effect = effect;
 }
 
-void SixNixieClock::setCurrentEffect(byte effect)
+void CalcNixieClock::setCurrentEffect(byte effect)
 {
 	byte mode = effect;
 	if (effect == 5) {	// random
@@ -80,32 +81,49 @@ void SixNixieClock::setCurrentEffect(byte effect)
 	}
 }
 
-uint32_t SixNixieClock::bcdEncode(uint32_t digits, bool isDate) {
+uint32_t CalcNixieClock::bcdEncode(uint32_t digits, bool isDate) {
 	uint32_t hours = (digits / 100000L) % 10;
-	uint32_t encoded = digits =
-			  (digits % 10) * 0x100000
-			+ ((digits / 10) % 10) * 0x10000
-			+ ((digits / 100) % 10) * 0x1000
-			+ ((digits / 1000) % 10) * 0x100
-			+ ((digits / 10000) % 10) * 0x10;
 
 	if (hours == 0 && !leadingZero && !isDate) {
-		hours = 12;	// Blank
+		hours = 0xc;	// Blank
 	}
-	digits += hours;
+
+	if (isDate) {
+		digits =
+			((digits % 10) << 28)
+			+ (((digits / 10) % 10) << 24)
+			+ (((digits / 100) % 10) << 20)
+			+ (((digits / 1000) % 10) << 16)
+			+ (((digits / 10000) % 10) << 12)
+			+ (hours << 8)
+			+ (0xc << 4)
+			+ 0xc
+			;
+	} else {
+		digits =
+			  ((digits % 10) << 28)
+			+ (((digits / 10) % 10) << 24)
+			+ (0xc << 20)
+			+ (((digits / 100) % 10) << 16)
+			+ (((digits / 1000) % 10) << 12)
+			+ (0xc << 8)
+			+ (((digits / 10000) % 10) << 4)
+			+ hours;
+			;
+	}
 
 	return digits;
 
 }
 
-void SixNixieClock::Bubble::init() {
+void CalcNixieClock::Bubble::init() {
 }
 
-byte SixNixieClock::Bubble::getDelay() {
+byte CalcNixieClock::Bubble::getDelay() {
 	return 100;
 }
 
-bool SixNixieClock::Bubble::out(uint32_t target) {
+bool CalcNixieClock::Bubble::out(uint32_t target) {
 	// Rotate current digits to nextNixieDigit
 	byte digits[6];
 	for (int i=0; i<6; i++) {
@@ -134,7 +152,7 @@ bool SixNixieClock::Bubble::out(uint32_t target) {
 	return clock.nixieDigit == target;
 }
 
-bool SixNixieClock::Bubble::in(uint32_t target) {
+bool CalcNixieClock::Bubble::in(uint32_t target) {
 	// Rotate current digits to nextNixieDigit
 	byte digits[6];
 	for (int i=0; i<6; i++) {
@@ -163,7 +181,7 @@ bool SixNixieClock::Bubble::in(uint32_t target) {
 	return clock.nixieDigit == target;
 }
 
-const byte SixNixieClock::Divergence::RUN_LENGTH[] = {
+const byte CalcNixieClock::Divergence::RUN_LENGTH[] = {
 // Lookup Table for run lengths (appropriate random number in W... 0-7, 0-15, 0-63)
 // The first 8 are multiples of 10, for use when tube 7 returns to starting digit.
 // The first 16 are multiples of 5, for use when two cycles return digits to same.
@@ -241,9 +259,9 @@ const byte SixNixieClock::Divergence::RUN_LENGTH[] = {
 		62
 };
 
-byte SixNixieClock::Divergence::runLengths[6];
+byte CalcNixieClock::Divergence::runLengths[6];
 
-void SixNixieClock::Divergence::init() {
+void CalcNixieClock::Divergence::init() {
 	for (int i=0; i<6; i++) {
 		runLengths[i] = RUN_LENGTH[random(64)];
 	}
@@ -253,11 +271,11 @@ void SixNixieClock::Divergence::init() {
 	savedBrightness = clock.brightness;
 }
 
-byte SixNixieClock::Divergence::getDelay() {
+byte CalcNixieClock::Divergence::getDelay() {
 	return 25;
 }
 
-bool SixNixieClock::Divergence::out(uint32_t target) {
+bool CalcNixieClock::Divergence::out(uint32_t target) {
 #ifdef notdef
 	if (adjustRL) {
 		adjustRL = false;
@@ -329,19 +347,19 @@ bool SixNixieClock::Divergence::out(uint32_t target) {
 	return allEqual && (pulse == 0);
 }
 
-bool SixNixieClock::Divergence::in(uint32_t target) {
+bool CalcNixieClock::Divergence::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::ScrollLeft::init() {
+void CalcNixieClock::ScrollLeft::init() {
 	iteration = 0;
 }
 
-byte SixNixieClock::ScrollLeft::getDelay() {
+byte CalcNixieClock::ScrollLeft::getDelay() {
 	return 100;
 }
 
-bool SixNixieClock::ScrollLeft::out(uint32_t target) {
+bool CalcNixieClock::ScrollLeft::out(uint32_t target) {
 	if (iteration == 13) {
 		return true;
 	}
@@ -361,19 +379,19 @@ bool SixNixieClock::ScrollLeft::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::ScrollLeft::in(uint32_t target) {
+bool CalcNixieClock::ScrollLeft::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::ScrollRight::init() {
+void CalcNixieClock::ScrollRight::init() {
 	iteration = 0;
 }
 
-byte SixNixieClock::ScrollRight::getDelay() {
+byte CalcNixieClock::ScrollRight::getDelay() {
 	return 100;
 }
 
-bool SixNixieClock::ScrollRight::out(uint32_t target) {
+bool CalcNixieClock::ScrollRight::out(uint32_t target) {
 	if (iteration == 13) {
 		return true;
 	}
@@ -393,20 +411,20 @@ bool SixNixieClock::ScrollRight::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::ScrollRight::in(uint32_t target) {
+bool CalcNixieClock::ScrollRight::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::FadeLeft::init() {
+void CalcNixieClock::FadeLeft::init() {
 	iteration = 1;
 	clock.getNixieDriver()->setAnimation(NixieDriver::Animation::ANIMATION_FADE_OUT, -1);
 }
 
-byte SixNixieClock::FadeLeft::getDelay() {
+byte CalcNixieClock::FadeLeft::getDelay() {
 	return 50;
 }
 
-bool SixNixieClock::FadeLeft::out(uint32_t target) {
+bool CalcNixieClock::FadeLeft::out(uint32_t target) {
 	if (iteration == 2 && clock.getNixieDriver()->animationDone()) {
 		clock.getNixieDriver()->setAnimation(NixieDriver::Animation::ANIMATION_NONE, 0);
 		return true;
@@ -421,20 +439,20 @@ bool SixNixieClock::FadeLeft::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::FadeLeft::in(uint32_t target) {
+bool CalcNixieClock::FadeLeft::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::FadeRight::init() {
+void CalcNixieClock::FadeRight::init() {
 	iteration = 1;
 	clock.getNixieDriver()->setAnimation(NixieDriver::Animation::ANIMATION_FADE_OUT, 1);
 }
 
-byte SixNixieClock::FadeRight::getDelay() {
+byte CalcNixieClock::FadeRight::getDelay() {
 	return 50;
 }
 
-bool SixNixieClock::FadeRight::out(uint32_t target) {
+bool CalcNixieClock::FadeRight::out(uint32_t target) {
 	if (iteration == 2 && clock.getNixieDriver()->animationDone()) {
 		clock.getNixieDriver()->setAnimation(NixieDriver::Animation::ANIMATION_NONE, 0);
 		return true;
@@ -449,19 +467,19 @@ bool SixNixieClock::FadeRight::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::FadeRight::in(uint32_t target) {
+bool CalcNixieClock::FadeRight::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::SlideLeft::init() {
+void CalcNixieClock::SlideLeft::init() {
 	i = j = 0;
 }
 
-byte SixNixieClock::SlideLeft::getDelay() {
+byte CalcNixieClock::SlideLeft::getDelay() {
 	return 50;
 }
 
-bool SixNixieClock::SlideLeft::out(uint32_t target) {
+bool CalcNixieClock::SlideLeft::out(uint32_t target) {
 	if (i == 12) {
 		return true;
 	}
@@ -526,19 +544,19 @@ bool SixNixieClock::SlideLeft::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::SlideLeft::in(uint32_t target) {
+bool CalcNixieClock::SlideLeft::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::SlideRight::init() {
+void CalcNixieClock::SlideRight::init() {
 	i = j = 0;
 }
 
-byte SixNixieClock::SlideRight::getDelay() {
+byte CalcNixieClock::SlideRight::getDelay() {
 	return 50;
 }
 
-bool SixNixieClock::SlideRight::out(uint32_t target) {
+bool CalcNixieClock::SlideRight::out(uint32_t target) {
 	if (i == 12) {
 		return true;
 	}
@@ -603,11 +621,11 @@ bool SixNixieClock::SlideRight::out(uint32_t target) {
 	return false;
 }
 
-bool SixNixieClock::SlideRight::in(uint32_t target) {
+bool CalcNixieClock::SlideRight::in(uint32_t target) {
 	return out(target);
 }
 
-void SixNixieClock::doCount(unsigned long nowMs) {
+void CalcNixieClock::doCount(unsigned long nowMs) {
 
 	if (countSpeed == 0) {
 		return;
@@ -619,13 +637,21 @@ void SixNixieClock::doCount(unsigned long nowMs) {
 		nixieDigit = (nixieDigit + 1) % 10;
 		pNixieDriver->setMode(fadeMode);
 #ifdef ESP32
-		pNixieDriver->setNewNixieDigit(
+		uint32_t digit =
 				nixieDigit +
-				nixieDigit * 0x10 +
-				nixieDigit * 0x100 +
-				nixieDigit * 0x1000 +
-				nixieDigit * 0x10000 +
-				nixieDigit * 0x100000);
+				(nixieDigit << 4) +
+				(nixieDigit << 8) +
+				(nixieDigit << 12) +
+				(nixieDigit << 16) +
+				(nixieDigit << 20) +
+				(nixieDigit << 24) +
+				(nixieDigit << 28)
+				;
+
+		HV9808ESP32NixieDriverMultiplex *pMux = static_cast<HV9808ESP32NixieDriverMultiplex*>(pNixieDriver);
+		pMux->setNewNixieDigit(digit);
+		pMux->setDate(digit);
+
 #else
 		pNixieDriver->setNewNixieDigit(
 				nixieDigit +
@@ -638,11 +664,10 @@ void SixNixieClock::doCount(unsigned long nowMs) {
 	}
 }
 
-void SixNixieClock::doClock(unsigned long nowMs) {
-	static bool wasDate = false;
-	static bool switchedBack = false;
-	static uint32_t stashedTime = 0;
+static uint64_t TIME_COLONS = 1ULL << 8 | 1ULL << 20;
+static uint64_t DATE_COLONS = 1ULL << 12 | 1ULL << 20;
 
+void CalcNixieClock::doClock(unsigned long nowMs) {
 	if (displayTimer.expired(nowMs)) {
 		time_t _now = now();
 
@@ -657,96 +682,62 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		bool showDate = (alternateInterval != 0) && ((minSnap % alternateInterval) == 0) && (secSnap >= 45) && (secSnap <= 52);
 		bool tick = false;
 
-		if ((timeMode != alternateTime) && !showDate) {
-			uint32_t nextNixieDigit = stashedTime;
+		uint32_t nextNixieDigit = 0;
 
-			if (stashedTime == 0) {
-				displayTimer.init(nowMs, 1000);
+		displayTimer.init(nowMs, 1000);
 
-				pNixieDriver->setMode(fadeMode);
-
-				if (twelveHour) {
-					if (hourSnap > 12) {
-						nextNixieDigit = (hourSnap - 12) * 10000;
-					} else {
-						nextNixieDigit = hourSnap * 10000;
-					}
-
-					if (hourSnap == 0) {
-						nextNixieDigit = 120000;
-					}
-				} else {
-					nextNixieDigit = hourSnap * 10000;
-				}
-				nextNixieDigit += minSnap * 100;
-				nextNixieDigit += secSnap;
-
-				// Get BCD representation of the time
-				nextNixieDigit = bcdEncode(nextNixieDigit, false);
-				tick = true;
-			}
-
-			byte evenSec = secSnap & 1;
-			switch (pNixieDriver->getIndicator()) {
-			case 0: colonMask = 0; break;
-			case 1: colonMask = 1; break;
-			case 2: colonMask = evenSec; break;
-			default: colonMask = isPM(_now);
-			}
-
-			if (wasDate) {
-				colonMask = 0;
-				tick = false;
-
-				if (switchedBack) {
-					switchedBack = false;
-					setCurrentEffect(in_effect);
-					pCurrentEffect->init();
-				}
-				stashedTime = nextNixieDigit;
-				if (pCurrentEffect->in(nextNixieDigit)) {
-					stashedTime = 0;
-					wasDate = false;
-				} else {
-					pNixieDriver->setMode(NixieDriver::DisplayMode::NO_FADE_DELAY);
-					displayTimer.init(nowMs, pCurrentEffect->getDelay());
-				}
+		if (twelveHour) {
+			if (hourSnap > 12) {
+				nextNixieDigit = (hourSnap - 12) * 10000;
 			} else {
-				nixieDigit = nextNixieDigit;
+				nextNixieDigit = hourSnap * 10000;
+			}
+
+			if (hourSnap == 0) {
+				nextNixieDigit = 120000;
 			}
 		} else {
-			if (!wasDate) {
-				setCurrentEffect(out_effect);
-				pCurrentEffect->init();
-			}
+			nextNixieDigit = hourSnap * 10000;
+		}
+		nextNixieDigit += minSnap * 100;
+		nextNixieDigit += secSnap;
 
-			switchedBack = wasDate = true;
-			pNixieDriver->setMode(NixieDriver::DisplayMode::NO_FADE_DELAY);
+		// Get BCD representation of the time
+		nextNixieDigit = bcdEncode(nextNixieDigit, false);
+		tick = true;
 
-			displayTimer.init(nowMs, pCurrentEffect->getDelay());
-			uint32_t nextNixieDigit = 0;
+		nixieDigit = nextNixieDigit;
 
-			switch (dateFormat) {
-			case 0:	// DD-MM-YY
-				nextNixieDigit = daySnap * 10000L + monthSnap * 100L + yearSnap;
-				break;
-			case 1: // MM-DD-YY
-				nextNixieDigit = monthSnap * 10000L + daySnap * 100L + yearSnap;
-				break;
-			default: // YY-MM-DD
-				nextNixieDigit = yearSnap * 10000L + monthSnap * 100L + daySnap;
-				break;
-			}
+		uint32_t date = 0;
 
-			nextNixieDigit = bcdEncode(nextNixieDigit, true);
-			pCurrentEffect->out(nextNixieDigit);
-			colonMask = 0;
+		switch (dateFormat) {
+		case 0:	// DD-MM-YY
+			date = daySnap * 10000L + monthSnap * 100L + yearSnap;
+			break;
+		case 1: // MM-DD-YY
+			date = monthSnap * 10000L + daySnap * 100L + yearSnap;
+			break;
+		default: // YY-MM-DD
+			date = yearSnap * 10000L + monthSnap * 100L + daySnap;
+			break;
 		}
 
-		nixieDigit |= secSnap % 2 * 0x1000000;	// Hidden digit to force it to change every second.
+		date = bcdEncode(date, true);
+
+		byte evenSec = secSnap & 1;
+		uint64_t colons = DATE_COLONS << 32;
+		switch (pNixieDriver->getIndicator()) {
+		case 0: colons = 0; break;
+		case 1: colons |= TIME_COLONS; break;
+		case 2: if (evenSec) {colons |= TIME_COLONS;} break;
+		default: if (isPM(_now)) {colons |= TIME_COLONS;}
+		}
 
 		if (oldNixieDigit != nixieDigit) {
-			pNixieDriver->setNewNixieDigit(nixieDigit);
+			HV9808ESP32NixieDriverMultiplex *pMux = static_cast<HV9808ESP32NixieDriverMultiplex*>(pNixieDriver);
+			pMux->setNewNixieDigit(nixieDigit);
+			pMux->setDate(date);
+			pMux->setColons(colons);
 		}
 
 		pNixieDriver->setColons(colonMask);

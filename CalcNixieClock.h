@@ -1,17 +1,17 @@
 /*
- * SixNixieClock.h
+ * CalcNixieClock.h
  *
  *  Created on: Dec 3, 2017
  *      Author: Paul Andrews
  */
 
-#ifndef LIBRARIES_SIXNIXIECLOCK_SIXNIXIECLOCK_H_
-#define LIBRARIES_SIXNIXIECLOCK_SIXNIXIECLOCK_H_
+#ifndef LIBRARIES_CALCNIXIECLOCK_CALCNIXIECLOCK_H_
+#define LIBRARIES_CALCNIXIECLOCK_CALCNIXIECLOCK_H_
 #include <Arduino.h>
 #include <NixieDriver.h>
 #include <NixieClock.h>
 
-class SixNixieClock : public NixieClock {
+class CalcNixieClock : public NixieClock {
 	class Effect {
 	public:
 		virtual void init() = 0;
@@ -22,19 +22,19 @@ class SixNixieClock : public NixieClock {
 
 	class Bubble : public Effect {
 	public:
-		Bubble(SixNixieClock &clock) : clock(clock) {}
+		Bubble(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 	};
 
 	class Divergence : public Effect {
 	public:
-		Divergence(SixNixieClock &clock) : clock(clock) {}
+		Divergence(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
@@ -47,91 +47,91 @@ class SixNixieClock : public NixieClock {
 		byte pulse = 0;
 		byte savedBrightness;
 
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 	};
 
 	class ScrollLeft : public Effect {
 	public:
-		ScrollLeft(SixNixieClock &clock) : clock(clock) {}
+		ScrollLeft(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte iteration = 0;
 	};
 
 	class ScrollRight : public Effect {
 	public:
-		ScrollRight(SixNixieClock &clock) : clock(clock) {}
+		ScrollRight(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte iteration = 0;
 	};
 
 	class FadeLeft : public Effect {
 	public:
-		FadeLeft(SixNixieClock &clock) : clock(clock) {}
+		FadeLeft(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte iteration = 0;
 	};
 
 	class FadeRight : public Effect {
 	public:
-		FadeRight(SixNixieClock &clock) : clock(clock) {}
+		FadeRight(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte iteration = 0;
 	};
 
 	class SlideLeft : public Effect {
 	public:
-		SlideLeft(SixNixieClock &clock) : clock(clock) {}
+		SlideLeft(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte i = 0;
 		byte j = 0;
 	};
 
 	class SlideRight : public Effect {
 	public:
-		SlideRight(SixNixieClock &clock) : clock(clock) {}
+		SlideRight(CalcNixieClock &clock) : clock(clock) {}
 		virtual void init();
 		virtual bool in(uint32_t digits);
 		virtual bool out(uint32_t digits);
 		virtual byte getDelay();
 
 	private:
-		SixNixieClock &clock;
+		CalcNixieClock &clock;
 		byte i = 0;
 		byte j = 0;
 	};
 
 public:
-	SixNixieClock(NixieDriver* pNixieDriver) :
+	CalcNixieClock(NixieDriver* pNixieDriver) :
 		NixieClock(pNixieDriver)
 	{
 		setNumDigits(6);
@@ -198,4 +198,4 @@ private:
 };
 
 
-#endif /* LIBRARIES_SIXNIXIECLOCK_SIXNIXIECLOCK_H_ */
+#endif /* LIBRARIES_CALCNIXIECLOCK_CALCNIXIECLOCK_H_ */

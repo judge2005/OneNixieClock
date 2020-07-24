@@ -10,12 +10,14 @@
 
 void NixieClock::init() {
 	timePart = 0;
-	displayTimer.init(0, 0);
+	displayTimer.init(millis(), 0);
 	nixieDigit = 0;
 }
 
 void NixieClock::syncDisplay() {
-	init();
+	timePart = 0;
+	displayTimer.init(millis(), 0);
+	nixieDigit = 0;
 }
 
 void NixieClock::setClockMode(bool clockMode) {

@@ -130,17 +130,19 @@ void OneNixieClock::doClock(unsigned long nowMs) {
 			uint32_t nextClockDigit = getDigit();
 			if (pNixieDriver->setTransition(scrollback ? 2 : 1, nextClockDigit)) {
 				pNixieDriver->setMode(NixieDriver::NO_FADE);
-				displayTimer.init(nowMs, scrollBackDelay);
+				displayTimer.reset(scrollBackDelay);
+//				Serial.printf("A: %d:%d\n", displayTimer.getLastTick(), displayTimer.getDuration());
 			} else {
+				displayTimer.reset(0);
 				pNixieDriver->setTransition(0, nextClockDigit);
 				timePart = 0;
-				displayTimer.init(nowMs, 0);
 			}
 		}
 	}
 
 	if (timePart != 6) {
 		if (displayTimer.expired(nowMs)) {
+			displayTimer.init(nowMs, digitsOn);
 			byte colonMask = 0;
 			switch (timePart) {
 			case 0:
@@ -167,9 +169,11 @@ void OneNixieClock::doClock(unsigned long nowMs) {
 			pNixieDriver->setNewNixieDigit(nixieDigit);
 			acpCount = 0;
 
-			displayTimer.init(nowMs, digitsOn);
 			pNixieDriver->setColons(colonMask);
 			timePart = (timePart + 1) % 7;
+//			if (timePart == 6) {
+//				Serial.printf("B: %d:%d\n", displayTimer.getLastTick(), displayTimer.getDuration());
+//			}
 		}
 	}
 }

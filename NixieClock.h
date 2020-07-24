@@ -35,6 +35,10 @@ public:
 		pNixieDriver->setBrightness(brightness);
 	}
 
+	NixieDriver* getNixieDriver() {
+		return pNixieDriver;
+	}
+
 	void setShowSeconds(bool showSeconds) {
 		this->showSeconds = showSeconds;
 	}
@@ -144,11 +148,21 @@ public:
 			this->duration = duration;
 		}
 		void init(unsigned long now, unsigned long duration) {
-			lastTick = now;
+			lastTick += this->duration;
+			this->duration = duration;
+			if (expired(now)) {
+				lastTick = now;
+			}
+		}
+		void reset(unsigned long duration) {
+			lastTick += this->duration;
 			this->duration = duration;
 		}
 		unsigned long getLastTick() {
 			return lastTick;
+		}
+		unsigned long getDuration() {
+			return duration;
 		}
 	private:
 		unsigned long lastTick;
