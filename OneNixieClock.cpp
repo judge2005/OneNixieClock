@@ -121,12 +121,21 @@ void OneNixieClock::doClock(unsigned long nowMs) {
 	if (timePart == 6) {
 		if (displayTimer.expired(nowMs)) {
 			pNixieDriver->setColons(0);
-			time_t _now = now();
-			monthSnap = month(_now);
-			daySnap = day(_now);
-			hourSnap = hour(_now);
-			minSnap = minute(_now);
-			secSnap = second(_now);
+
+			struct tm now;
+			suseconds_t uSec;
+			pTimeSync->getLocalTime(&now, &uSec);
+			unsigned long realms = uSec / 1000;
+
+			uint32_t oldNixieDigit = nixieDigit;
+
+			secSnap = now.tm_sec;
+			hourSnap = now.tm_hour;
+			minSnap = now.tm_min;
+			yearSnap = now.tm_year;
+			monthSnap = now.tm_mon;
+			daySnap = now.tm_mday;
+
 			uint32_t nextClockDigit = getDigit();
 			if (pNixieDriver->setTransition(scrollback ? 2 : 1, nextClockDigit)) {
 				pNixieDriver->setMode(NixieDriver::NO_FADE);

@@ -9,6 +9,7 @@
 #define LIBRARIES_NIXIECLOCK_NIXIECLOCK_H_
 #include <Arduino.h>
 #include <NixieDriver.h>
+#include <TimeSync.h>
 
 class NixieClock {
 public:
@@ -28,6 +29,10 @@ public:
 
 	void onTick(pTickFn callback) {
 		this->callback = callback;
+	}
+
+	void setTimeSync(TimeSync *pTimeSync) {
+		this->pTimeSync = pTimeSync;
 	}
 
 	void setNixieDriver(NixieDriver* pNixieDriver) {
@@ -172,6 +177,7 @@ public:
 protected:
 	NixieDriver* pNixieDriver;
 	pTickFn callback = 0;
+	TimeSync *pTimeSync = 0;
 
 	Timer displayTimer;
 	unsigned long nextACP = 0;

@@ -6,7 +6,6 @@
  */
 
 #include <SixNixieClock.h>
-#include <TimeLib.h>
 
 void SixNixieClock::loop(unsigned long nowMs) {
 	pNixieDriver->setDisplayOn(isOn() && hvOn && mov);
@@ -644,16 +643,23 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 	static uint32_t stashedTime = 0;
 
 	if (displayTimer.expired(nowMs)) {
-		time_t _now = now();
+		struct tm now;
+		suseconds_t uSec;
+		pTimeSync->getLocalTime(&now, &uSec);
+		unsigned long realms = uSec / 1000;
+		if (realms > 1000) {
+			realms = 0;	// Something went wrong so pick a safe number for 1000 - realms...
+		}
 
 		uint32_t oldNixieDigit = nixieDigit;
 
-		secSnap = second(_now);
-		hourSnap = hour(_now);
-		minSnap = minute(_now);
-		yearSnap = year(_now) % 100;
-		monthSnap = month(_now);
-		daySnap = day(_now);
+		secSnap = now.tm_sec;
+		hourSnap = now.tm_hour;
+		minSnap = now.tm_min;
+		yearSnap = now.tm_year;
+		monthSnap = now.tm_mon;
+		daySnap = now.tm_mday;
+
 		bool showDate = (alternateInterval != 0) && ((minSnap % alternateInterval) == 0) && (secSnap >= 45) && (secSnap <= 52);
 		bool tick = false;
 
@@ -661,7 +667,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 			uint32_t nextNixieDigit = stashedTime;
 
 			if (stashedTime == 0) {
-				displayTimer.init(nowMs, 1000);
+				displayTimer.init(nowMs, 1000 - realms);
 
 				pNixieDriver->setMode(fadeMode);
 
@@ -691,7 +697,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 			case 0: colonMask = 0; break;
 			case 1: colonMask = 1; break;
 			case 2: colonMask = evenSec; break;
-			default: colonMask = isPM(_now);
+			default: colonMask = hourSnap >= 12;
 			}
 
 			if (wasDate) {
