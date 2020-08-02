@@ -44,10 +44,14 @@ void SixNixieClock::setCurrentEffect(byte effect)
 {
 	byte mode = effect;
 	if (effect == 5) {	// random
-		mode = random(0, 8); // Return 0 through 7 (8 effects)
+#ifdef ITS1A
+		mode = random(0, 5); // Return 0 through 4 (5 effects)
+#else
+		mode = random(0, 9); // Return 0 through 8 (8 effects because 5 has to be excluded)
 		if (mode == 5) {
 			mode += 1;	// Skip mode 5, because that means random!
 		}
+#endif
 	}
 
 	switch (mode) {
@@ -646,11 +650,12 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		struct tm now;
 		suseconds_t uSec;
 		pTimeSync->getLocalTime(&now, &uSec);
-		unsigned long realms = uSec / 1000;
+		suseconds_t realms = uSec / 1000;
+#ifdef notdef
 		if (realms > 1000) {
 			realms = 0;	// Something went wrong so pick a safe number for 1000 - realms...
 		}
-
+#endif
 		uint32_t oldNixieDigit = nixieDigit;
 
 		secSnap = now.tm_sec;

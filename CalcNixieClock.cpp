@@ -671,11 +671,12 @@ void CalcNixieClock::doClock(unsigned long nowMs) {
 		struct tm now;
 		suseconds_t uSec;
 		pTimeSync->getLocalTime(&now, &uSec);
-		unsigned long realms = uSec / 1000;
+		suseconds_t realms = uSec / 1000;
+#ifdef notdef
 		if (realms > 1000) {
 			realms = 0;	// Something went wrong so pick a safe number for 1000 - realms...
 		}
-
+#endif
 		uint32_t oldNixieDigit = nixieDigit;
 
 		secSnap = now.tm_sec;
