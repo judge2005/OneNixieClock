@@ -143,10 +143,10 @@ public:
 	 */
 	class Timer {
 	public:
-		Timer(unsigned long duration) : lastTick(0), duration(duration) {}
-		Timer() : lastTick(0), duration(0) {}
+		Timer(unsigned long duration) : enabled(false), lastTick(0), duration(duration) {}
+		Timer() : enabled(false), lastTick(0), duration(0) {}
 
-		bool expired(unsigned long now) {
+		bool expired(unsigned long now) const {
 			return now - lastTick >= duration;
 		}
 		void setDuration(unsigned long duration) {
@@ -163,13 +163,23 @@ public:
 			lastTick += this->duration;
 			this->duration = duration;
 		}
-		unsigned long getLastTick() {
+		unsigned long getLastTick() const {
 			return lastTick;
 		}
-		unsigned long getDuration() {
+		unsigned long getDuration() const {
 			return duration;
 		}
+
+		bool isEnabled() const {
+			return enabled;
+		}
+
+		void setEnabled(bool enabled) {
+			this->enabled = enabled;
+		}
+
 	private:
+		bool enabled;
 		unsigned long lastTick;
 		unsigned long duration;
 	};

@@ -14,31 +14,43 @@
 class CalcNixieClock : public NixieClock {
 	class Effect {
 	public:
-		virtual void init() = 0;
-		virtual bool in(uint32_t digits) = 0;
-		virtual bool out(uint32_t digits) = 0;
-		virtual byte getDelay() = 0;
+		virtual void init(unsigned long nowMs) = 0;
+		virtual void setCurrent(uint32_t digits) = 0;
+		virtual uint32_t getCurrent() = 0;
+		virtual bool in(unsigned long nowMs, uint32_t digits) = 0;
+		virtual bool out(unsigned long nowMs, uint32_t digits) = 0;
+		virtual byte getDelay(unsigned long nowMs) = 0;
 	};
 
-	class Bubble : public Effect {
+	class EffectBase : public Effect {
 	public:
-		Bubble(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
+		virtual void init(unsigned long nowMs);
+		virtual void setCurrent(uint32_t digits);
+		virtual uint32_t getCurrent();
+		virtual byte getDelay(unsigned long nowMs);
+	protected:
+		byte period = 0;
+		uint32_t current = 0xcccccccc;
+		Timer effectTimer;
+	};
+
+	class ScrollRight : public EffectBase {
+	public:
+		ScrollRight() { period = 100; }
+		virtual void init(unsigned long nowMs);
+		virtual bool in(unsigned long nowMs, uint32_t digits);
+		virtual bool out(unsigned long nowMs, uint32_t digits);
 
 	private:
-		CalcNixieClock &clock;
+		byte iteration = 0;
 	};
 
-	class Divergence : public Effect {
+	class Divergence : public EffectBase {
 	public:
-		Divergence(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
+		Divergence() { period = 25; }
+		virtual void init(unsigned long nowMs);
+		virtual bool in(unsigned long nowMs, uint32_t digits);
+		virtual bool out(unsigned long nowMs, uint32_t digits);
 
 	private:
 		static const byte RUN_LENGTH[];
@@ -46,86 +58,16 @@ class CalcNixieClock : public NixieClock {
 		bool adjustRL = false;
 		byte pulse = 0;
 		byte savedBrightness;
-
-		CalcNixieClock &clock;
 	};
 
-	class ScrollLeft : public Effect {
+	class SlideRight : public EffectBase {
 	public:
-		ScrollLeft(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
+		SlideRight() { period = 50; }
+		virtual void init(unsigned long nowMs);
+		virtual bool in(unsigned long nowMs, uint32_t digits);
+		virtual bool out(unsigned long nowMs, uint32_t digits);
 
 	private:
-		CalcNixieClock &clock;
-		byte iteration = 0;
-	};
-
-	class ScrollRight : public Effect {
-	public:
-		ScrollRight(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
-
-	private:
-		CalcNixieClock &clock;
-		byte iteration = 0;
-	};
-
-	class FadeLeft : public Effect {
-	public:
-		FadeLeft(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
-
-	private:
-		CalcNixieClock &clock;
-		byte iteration = 0;
-	};
-
-	class FadeRight : public Effect {
-	public:
-		FadeRight(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
-
-	private:
-		CalcNixieClock &clock;
-		byte iteration = 0;
-	};
-
-	class SlideLeft : public Effect {
-	public:
-		SlideLeft(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
-
-	private:
-		CalcNixieClock &clock;
-		byte i = 0;
-		byte j = 0;
-	};
-
-	class SlideRight : public Effect {
-	public:
-		SlideRight(CalcNixieClock &clock) : clock(clock) {}
-		virtual void init();
-		virtual bool in(uint32_t digits);
-		virtual bool out(uint32_t digits);
-		virtual byte getDelay();
-
-	private:
-		CalcNixieClock &clock;
 		byte i = 0;
 		byte j = 0;
 	};
@@ -135,14 +77,10 @@ public:
 		NixieClock(pNixieDriver)
 	{
 		setNumDigits(6);
-		pDivergence = new Divergence(*this);
-		pBubble = new Bubble(*this);
-		pSlideLeft = new SlideLeft(*this);
-		pScrollLeft = new ScrollLeft(*this);
-		pFadeLeft = new FadeLeft(*this);
-		pSlideRight = new SlideRight(*this);
-		pScrollRight = new ScrollRight(*this);
-		pFadeRight = new FadeRight(*this);
+		pScrollRight = new ScrollRight();
+		pSlideRight = new SlideRight();
+		pDivergence = new Divergence();
+		pCurrentEffect = pScrollRight;
 	}
 
 	virtual void loop(unsigned long nowMs);
@@ -175,6 +113,10 @@ private:
 	void doClock(unsigned long nowMs);
 	void doCount(unsigned long nowMs);
 	void setCurrentEffect(byte effect);
+	uint32_t getSixDigitTime(struct tm &now);
+	uint32_t getSixDigitDate(struct tm &now);
+	uint32_t getEightDigitTime(struct tm& now);
+	uint64_t getColons(struct tm& now);
 
 	bool hvOn = true;
 	bool mov = true;
@@ -185,14 +127,9 @@ private:
 	byte out_effect = 0;	// bubble
 	byte in_effect = 0;	// bubble
 
-	Divergence *pDivergence = 0;
-	Bubble *pBubble = 0;
-	SlideLeft *pSlideLeft = 0;
-	ScrollLeft *pScrollLeft = 0;
-	FadeLeft *pFadeLeft = 0;
-	SlideRight *pSlideRight = 0;
 	ScrollRight *pScrollRight = 0;
-	FadeRight *pFadeRight = 0;
+	Divergence *pDivergence = 0;
+	SlideRight *pSlideRight = 0;
 
 	Effect *pCurrentEffect = 0;
 };
