@@ -1,13 +1,13 @@
 /*
- * FourNixieClock.cpp
+ * RodanClock.cpp
  *
  *  Created on: Dec 3, 2017
  *      Author: Paul Andrews
  */
 
-#include <FourNixieClock.h>
+#include <RodanClock.h>
 
-void FourNixieClock::loop(unsigned long nowMs) {
+void RodanClock::loop(unsigned long nowMs) {
 	pNixieDriver->setDisplayOn(isOn() && hvOn && mov);
 
 	if (clockMode) {
@@ -17,20 +17,20 @@ void FourNixieClock::loop(unsigned long nowMs) {
 	}
 }
 
-void FourNixieClock::setHV(bool hv) {
+void RodanClock::setHV(bool hv) {
 	this->hvOn = hv;
 }
 
-void FourNixieClock::setMov(bool mov) {
+void RodanClock::setMov(bool mov) {
 	this->mov = mov;
 }
 
-void FourNixieClock::setAlternateInterval(byte alternateInterval)
+void RodanClock::setAlternateInterval(byte alternateInterval)
 {
 	this->alternateInterval = alternateInterval;
 }
 
-bool FourNixieClock::showAlternate(struct tm &now) {
+bool RodanClock::showAlternate(struct tm &now) {
 	bool showAlternate = false;
 
 	if (alternateInterval != 0) {
@@ -46,24 +46,28 @@ bool FourNixieClock::showAlternate(struct tm &now) {
 	return showAlternate;
 }
 
-void FourNixieClock::setInEffect(byte effect)
+void RodanClock::setInEffect(byte effect)
 {
 	this->in_effect = effect;
 }
 
-void FourNixieClock::setOutEffect(byte effect)
+void RodanClock::setOutEffect(byte effect)
 {
 	this->out_effect = effect;
 }
 
-void FourNixieClock::setCurrentEffect(byte effect)
+void RodanClock::setCurrentEffect(byte effect)
 {
 	byte mode = effect;
 	if (effect == 5) {	// random
-		mode = random(0, 9); // Return 0 through 9 (9 effects because 5 has to be excluded)
+#ifdef ITS1A
+		mode = random(0, 5); // Return 0 through 4 (5 effects)
+#else
+		mode = random(0, 9); // Return 0 through 8 (8 effects because 5 has to be excluded)
 		if (mode == 5) {
 			mode += 1;	// Skip mode 5, because that means random!
 		}
+#endif
 	}
 
 	switch (mode) {
@@ -88,9 +92,6 @@ void FourNixieClock::setCurrentEffect(byte effect)
 	case 8:
 		pCurrentEffect = pFadeRight;
 		break;
-	case 9:
-		pCurrentEffect = pNoAnimation;
-		break;
 	case 0:
 	default:
 		pCurrentEffect = pBubble;
@@ -98,7 +99,25 @@ void FourNixieClock::setCurrentEffect(byte effect)
 	}
 }
 
-void FourNixieClock::doCount(unsigned long nowMs) {
+uint32_t RodanClock::bcdEncode(uint32_t digits, bool isDate) {
+	uint32_t hours = (digits / 100000L) % 10;
+	uint32_t encoded = digits =
+			  (digits % 10) * 0x100000
+			+ ((digits / 10) % 10) * 0x10000
+			+ ((digits / 100) % 10) * 0x1000
+			+ ((digits / 1000) % 10) * 0x100
+			+ ((digits / 10000) % 10) * 0x10;
+
+	if (hours == 0 && !leadingZero && !isDate) {
+		hours = 12;	// Blank
+	}
+	digits += hours;
+
+	return digits;
+
+}
+
+void RodanClock::doCount(unsigned long nowMs) {
 
 	if (countSpeed == 0) {
 		return;
@@ -130,7 +149,7 @@ void FourNixieClock::doCount(unsigned long nowMs) {
 }
 
 
-void FourNixieClock::doClock(unsigned long nowMs) {
+void RodanClock::doClock(unsigned long nowMs) {
 	if (displayTimer.expired(nowMs)) {
 		struct tm now;
 		suseconds_t uSec;
@@ -161,10 +180,10 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 		uint32_t newNixieDigit = 0xcccccccc;
 
 		if (showTime) {
-			newNixieDigit = getFourDigitTime(now);
+			newNixieDigit = getSixDigitTime(now);
 			effectDone = pCurrentEffect->in(nowMs, newNixieDigit);
 		} else {
-			newNixieDigit = getFourDigitDate(now);
+			newNixieDigit = getSixDigitDate(now);
 			effectDone = pCurrentEffect->out(nowMs, newNixieDigit);
 		}
 
@@ -188,7 +207,7 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 			}
 		} else {
 			pNixieDriver->setMode(pCurrentEffect->getDisplayMode());
-			nixieDigit = pCurrentEffect->getCurrent();
+			nixieDigit = (pCurrentEffect->getCurrent() & 0xff00ffff) | (nixieDigit & 0xff0000);
 			if (pCurrentEffect->getDelay(nowMs) < tDelay) {
 				tDelay = pCurrentEffect->getDelay(nowMs);
 			}
@@ -196,10 +215,7 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 
 		displayTimer.init(nowMs, tDelay);
 
-		if (oldNixieDigit != nixieDigit) {
-			// Don't call this if nothing has changed - it will reset any transition timer in the driver
-			pNixieDriver->setNewNixieDigit(nixieDigit);
-		}
+		pNixieDriver->setNewNixieDigit(nixieDigit);
 		pNixieDriver->setColons(colons);
 
 		if (tick && callback != 0) {
@@ -208,7 +224,43 @@ void FourNixieClock::doClock(unsigned long nowMs) {
 	}
 }
 
-uint32_t FourNixieClock::getFourDigitTime(struct tm &now) {
+uint8_t RodanClock::getMSB(struct tm &now, bool noAMPM) {
+	uint8_t am_pm = 0xc;	// No am/pm
+	if (twelveHour && !noAMPM) {
+		am_pm = 0;	// AM
+		if (now.tm_hour >= 12) {
+			am_pm = 1;	// PM
+		}
+	}
+
+		// day of week [0,6] (Sunday = 0)
+	uint8_t low_nibble = am_pm;
+	switch (now.tm_wday) {
+	case 0:
+		if (low_nibble == 0xc) {	// No AM/PM
+			low_nibble = 8;
+		} else {
+			low_nibble += 10;
+		}
+		break;		// 0, 1, 8, 10, 11
+	case 1:
+		if (low_nibble == 0xc) {	// No AM/PM
+			low_nibble = 9;
+		} else {
+			low_nibble += 13;
+		}
+		break;	// 0, 1, 9, 13, 14
+	}
+
+	uint8_t high_nibble = 0xc;
+	if (now.tm_wday >= 2) {
+		high_nibble = now.tm_wday - 2;
+	}
+
+	return low_nibble +  (high_nibble << 4);
+}
+
+uint32_t RodanClock::getSixDigitTime(struct tm &now) {
 	union {
 		uint32_t packed;
 		uint8_t bytes[4];
@@ -234,10 +286,12 @@ uint32_t FourNixieClock::getFourDigitTime(struct tm &now) {
 	time.bytes[0] += (hour % 10) << 4;
 	time.bytes[1] = now.tm_min / 10 + ((now.tm_min % 10) << 4);
 
+	time.bytes[2] = getMSB(now, false);
+
 	return time.packed;
 }
 
-uint32_t FourNixieClock::getFourDigitDate(struct tm &now) {
+uint32_t RodanClock::getSixDigitDate(struct tm &now) {
 	union {
 		uint32_t packed;
 		uint8_t bytes[4];
@@ -249,12 +303,14 @@ uint32_t FourNixieClock::getFourDigitDate(struct tm &now) {
 	uint8_t month = now.tm_mon / 10 + ((now.tm_mon % 10) << 4);
 	uint8_t year = now.tm_year / 10 + ((now.tm_year % 10) << 4);
 
+	date.bytes[2] = getMSB(now, true);
+
 	switch (dateFormat) {
-	case 0:	// DD-MM
+	case 0:	// DD-MM-YY
 		date.bytes[0] = day;
 		date.bytes[1] = month;
 		break;
-	default: // MM-DD
+	default: // MM-DD-YY
 		date.bytes[0] = month;
 		date.bytes[1] = day;
 		break;
@@ -263,31 +319,16 @@ uint32_t FourNixieClock::getFourDigitDate(struct tm &now) {
 	return date.packed;
 }
 
-byte FourNixieClock::getColons(struct tm& now) {
+byte RodanClock::getColons(struct tm& now) {
 	byte colons = 0;
 
-	byte evenSec = now.tm_sec & 1;
-	if (!_oneColon) {
-		if (now.tm_sec < 15) {
-			colons = 1;
-			colons ^= evenSec;
-		} else if (now.tm_sec < 30) {
-			colons = 3;
-			colons ^= evenSec << 1;
-		} else if (now.tm_sec < 45) {
-			colons = 7;
-			colons ^= evenSec << 2;
-		} else if (now.tm_sec < 60) {
-			colons = 15;
-			colons ^= evenSec << 3;
-		}
-	} else {
-		switch (pNixieDriver->getIndicator()) {
-		case 0: colons = 0; break;
-		case 1: colons = 1; break;
-		case 2: colons = evenSec; break;
-		default: colons = (now.tm_hour >= 12);
-		}
+	switch (pNixieDriver->getIndicator()) {
+	case 1: colons = 1; break;
+	case 2: colons = now.tm_sec & 1; break;
+	case 3: colons = (now.tm_hour >= 12); break;
+	case 4: now.tm_sec & 1 ? colons = 2 : colons = 3; break;
+	case 5: now.tm_sec & 1 ? colons = 4 : colons = 5; break;
+	default: colons = 0; break;
 	}
 
 	return colons;

@@ -9,6 +9,7 @@
 #define LIBRARIES_NIXIECLOCK_NIXIECLOCK_H_
 #include <Arduino.h>
 #include <NixieDriver.h>
+#include <Timer.h>
 #include <TimeSync.h>
 
 class NixieClock {
@@ -70,8 +71,10 @@ public:
 	}
 
 	virtual void setBrightness(const byte b) {
-		brightness = b;
-		pNixieDriver->setBrightness(brightness);
+		if (!lockedBrightness) {
+			brightness = b;
+			pNixieDriver->setBrightness(brightness);
+		}
 	}
 
 	virtual void setTimeMode(bool timeMode) {
@@ -138,58 +141,27 @@ public:
 		return acpCount;
 	}
 
-	/*
-	 * Overflow-safe timer
-	 */
-	class Timer {
-	public:
-		Timer(unsigned long duration) : enabled(false), lastTick(0), duration(duration) {}
-		Timer() : enabled(false), lastTick(0), duration(0) {}
+	byte getBrightness() {
+		return brightness;
+	}
 
-		bool expired(unsigned long now) const {
-			return now - lastTick >= duration;
-		}
-		void setDuration(unsigned long duration) {
-			this->duration = duration;
-		}
-		void init(unsigned long now, unsigned long duration) {
-			lastTick += this->duration;
-			this->duration = duration;
-			if (expired(now)) {
-				lastTick = now;
-			}
-		}
-		void reset(unsigned long duration) {
-			lastTick += this->duration;
-			this->duration = duration;
-		}
-		unsigned long getLastTick() const {
-			return lastTick;
-		}
-		unsigned long getDuration() const {
-			return duration;
-		}
+	void lockBrightness(const byte b) {
+		lockedBrightness = true;
+		brightness = b;
+		pNixieDriver->setBrightness(brightness);
+	}
 
-		bool isEnabled() const {
-			return enabled;
-		}
-
-		void setEnabled(bool enabled) {
-			this->enabled = enabled;
-		}
-
-	private:
-		bool enabled;
-		unsigned long lastTick;
-		unsigned long duration;
-	};
+	void unlockBrightness(const byte b) {
+		lockedBrightness = false;
+		setBrightness(b);
+	}
 
 protected:
 	NixieDriver* pNixieDriver;
 	pTickFn callback = 0;
 	TimeSync *pTimeSync = 0;
 
-	Timer displayTimer;
+	ClockTimer::Timer displayTimer;
 	unsigned long nextACP = 0;
 	byte timePart = 0;
 	int digitsOn = 1500;
@@ -212,11 +184,12 @@ protected:
 	bool leadingZero = true;
 	byte dateFormat = 1;
 	byte brightness = 100;
+	bool lockedBrightness = false;
 	NixieDriver::DisplayMode fadeMode = NixieDriver::FADE_OUT;
 
 	bool clockMode = true;
 	byte countSpeed = 60;
-	byte numDigits = 12;
+	byte numDigits = 11;
 	uint32_t nixieDigit = 0;
 	byte on = 0;
 	byte off = 24;

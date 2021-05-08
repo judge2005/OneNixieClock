@@ -10,31 +10,10 @@
 #include <Arduino.h>
 #include <NixieDriver.h>
 #include <NixieClock.h>
+#include <Effect.h>
 
 class CalcNixieClock : public NixieClock {
-	class Effect {
-	public:
-		virtual void init(unsigned long nowMs) = 0;
-		virtual void setCurrent(uint32_t digits) = 0;
-		virtual uint32_t getCurrent() = 0;
-		virtual bool in(unsigned long nowMs, uint32_t digits) = 0;
-		virtual bool out(unsigned long nowMs, uint32_t digits) = 0;
-		virtual byte getDelay(unsigned long nowMs) = 0;
-	};
-
-	class EffectBase : public Effect {
-	public:
-		virtual void init(unsigned long nowMs);
-		virtual void setCurrent(uint32_t digits);
-		virtual uint32_t getCurrent();
-		virtual byte getDelay(unsigned long nowMs);
-	protected:
-		byte period = 0;
-		uint32_t current = 0xcccccccc;
-		Timer effectTimer;
-	};
-
-	class ScrollRight : public EffectBase {
+	class ScrollRight : public ClockEffects::EffectBase {
 	public:
 		ScrollRight() { period = 100; }
 		virtual void init(unsigned long nowMs);
@@ -45,7 +24,7 @@ class CalcNixieClock : public NixieClock {
 		byte iteration = 0;
 	};
 
-	class Divergence : public EffectBase {
+	class Divergence : public ClockEffects::EffectBase {
 	public:
 		Divergence() { period = 25; }
 		virtual void init(unsigned long nowMs);
@@ -60,7 +39,7 @@ class CalcNixieClock : public NixieClock {
 		byte savedBrightness;
 	};
 
-	class SlideRight : public EffectBase {
+	class SlideRight : public ClockEffects::EffectBase {
 	public:
 		SlideRight() { period = 50; }
 		virtual void init(unsigned long nowMs);
@@ -89,23 +68,8 @@ public:
 	virtual void setAlternateInterval(byte alternateInterval);
 	virtual void setOutEffect(byte effect);
 	virtual void setInEffect(byte effect);
-	virtual void setBrightness(const byte b) {
-		if (!lockedBrightness) {
-			brightness = b;
-			pNixieDriver->setBrightness(brightness);
-		}
-	}
-
-protected:
-	void lockBrightness(const byte b) {
-		lockedBrightness = true;
-		brightness = b;
-		pNixieDriver->setBrightness(brightness);
-	}
-
-	void unlockBrightness(const byte b) {
-		lockedBrightness = false;
-		setBrightness(b);
+	virtual void setSecondaryTimezone(const String &tz) {
+		secondaryTZ = tz;
 	}
 
 private:
@@ -118,6 +82,7 @@ private:
 	uint32_t getEightDigitTime(struct tm& now);
 	uint64_t getColons(struct tm& now);
 
+	String secondaryTZ;
 	bool hvOn = true;
 	bool mov = true;
 	bool lockedBrightness = false;
@@ -131,7 +96,7 @@ private:
 	Divergence *pDivergence = 0;
 	SlideRight *pSlideRight = 0;
 
-	Effect *pCurrentEffect = 0;
+	ClockEffects::Effect *pCurrentEffect = 0;
 };
 
 

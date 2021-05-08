@@ -51,7 +51,20 @@ void CalcNixieClock::setCurrentEffect(byte effect)
 		}
 	}
 
-	pCurrentEffect = pSlideRight;
+	switch (mode) {
+	case 3:
+		pCurrentEffect = pSlideRight;
+		break;
+	case 4:
+		pCurrentEffect = pScrollRight;
+		break;
+	case 6:
+		pCurrentEffect = pDivergence;
+		break;
+	default:
+		pCurrentEffect = pScrollRight;
+		break;
+	}
 }
 
 uint32_t CalcNixieClock::bcdEncode(uint32_t digits, bool isDate) {
@@ -86,24 +99,6 @@ uint32_t CalcNixieClock::bcdEncode(uint32_t digits, bool isDate) {
 	}
 
 	return digits;
-}
-
-void CalcNixieClock::EffectBase::init(unsigned long nowMs) {
-	current = 0xcccccccc;
-	effectTimer.setEnabled(true);
-	effectTimer.init(nowMs, 0);
-}
-
-void CalcNixieClock::EffectBase::setCurrent(uint32_t digits) {
-	current = digits;
-}
-
-uint32_t CalcNixieClock::EffectBase::getCurrent() {
-	return current;
-}
-
-byte CalcNixieClock::EffectBase::getDelay(unsigned long nowMs) {
-	return nowMs - effectTimer.getLastTick() + period;
 }
 
 const byte CalcNixieClock::Divergence::RUN_LENGTH[] = {
@@ -463,7 +458,8 @@ void CalcNixieClock::doClock(unsigned long nowMs) {
 		struct tm altTime;
 		suseconds_t uSec;
 		pTimeSync->getLocalTime(&now, &uSec);
-		pTimeSync->getTimeWithTz("GMT0BST,M3.5.0/1,M10.5.0", &altTime, NULL);
+		hourSnap = now.tm_hour;	// Used by isOn()
+		pTimeSync->getTimeWithTz(secondaryTZ.c_str(), &altTime, NULL);
 		suseconds_t realms = uSec / 1000;
 #ifdef notdef
 		if (realms > 1000) {
@@ -494,7 +490,7 @@ void CalcNixieClock::doClock(unsigned long nowMs) {
 		}
 
 		static bool showAlternate = false;
-
+		setCurrentEffect(out_effect);
 		uint32_t date = showAlternate ? getSixDigitTime(altTime) : getSixDigitDate(now);	// Right 8 digits of display
 		if (pCurrentEffect->out(nowMs, date)) {
 			// not in transition
