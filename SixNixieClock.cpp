@@ -156,11 +156,9 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		pTimeSync->getLocalTime(&now, &uSec);
 		hourSnap = now.tm_hour;	// Used by isOn()
 		suseconds_t realms = uSec / 1000;
-#ifdef notdef
 		if (realms > 1000) {
-			realms = 0;	// Something went wrong so pick a safe number for 1000 - realms...
+			realms = realms % 1000;	// Something went wrong so pick a safe number for 1000 - realms...
 		}
-#endif
 		bool tick = false;
 
 		unsigned long tDelay = 1000 - realms;
@@ -207,9 +205,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		} else {
 			pNixieDriver->setMode(pCurrentEffect->getDisplayMode());
 			nixieDigit = pCurrentEffect->getCurrent();
-			if (pCurrentEffect->getDelay(nowMs) < tDelay) {
-				tDelay = pCurrentEffect->getDelay(nowMs);
-			}
+			tDelay = pCurrentEffect->getDelay(nowMs);
 		}
 
 		displayTimer.init(nowMs, tDelay);

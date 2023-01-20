@@ -185,7 +185,7 @@ protected:
 	byte dateFormat = 1;
 	byte brightness = 100;
 	bool lockedBrightness = false;
-	NixieDriver::DisplayMode fadeMode = NixieDriver::FADE_OUT;
+	NixieDriver::DisplayMode fadeMode = NixieDriver::NO_FADE;
 
 	bool clockMode = true;
 	byte countSpeed = 60;

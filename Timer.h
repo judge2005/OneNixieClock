@@ -22,11 +22,8 @@ public:
 		this->duration = duration;
 	}
 	void init(unsigned long now, unsigned long duration) {
-		lastTick += this->duration;
+		lastTick = now;
 		this->duration = duration;
-		if (expired(now)) {
-			lastTick = now;
-		}
 	}
 	void reset(unsigned long duration) {
 		lastTick += this->duration;
