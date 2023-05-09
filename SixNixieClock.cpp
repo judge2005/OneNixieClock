@@ -159,6 +159,7 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		if (realms > 1000) {
 			realms = realms % 1000;	// Something went wrong so pick a safe number for 1000 - realms...
 		}
+		// This is a hack to stop the clock ticking if we are showing the date. It doesn't belong here.
 		bool tick = false;
 
 		unsigned long tDelay = 1000 - realms;
@@ -214,7 +215,13 @@ void SixNixieClock::doClock(unsigned long nowMs) {
 		pNixieDriver->setColons(colons);
 
 		if (tick && callback != 0) {
-			callback(now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec);
+			// There is a chance that we could be called sub-second. Don't call the callback in that case.
+			static uint32_t prevSecs = 0;
+			uint32_t _secs = now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec;
+			if (_secs != prevSecs) {
+				callback(_secs);
+				prevSecs = _secs;
+			}
 		}
 	}
 }
